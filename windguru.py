@@ -1,4 +1,38 @@
 # -*- coding: utf-8 -*-
+#    See the file LICENSE.txt for your rights.
+#    Author: Michael Kainzbauer (github: mkainzbauer)
+
+"""How to upload your weather data to windguru.cz
+
+*******************************************************************************
+
+To use this extension, add the following somewhere in your configuration file
+weewx.conf:
+
+[Windguru]
+    url = http://www.windguru.cz/upload/upload_custom.php
+    uid = YOUT_WINDGURU_UID
+    barometer = barometer # the pressure reading you want to upload, windguru expects pressure normalized to sea level, possible values are baromter, pressure, altimeter
+    
+
+Relevant data (winguru doesn't store all possible values) will be uploaded to windugu.cz every achive interval
+
+*******************************************************************************
+
+To enable this service:
+
+1) copy this file to the user directory
+
+2) modify the weewx configuration file by adding this service to the option
+"report_services", located in section [Engine][[Services]].
+
+[Engine]
+  [[Services]]
+    ...
+    data_services = user.windguru.UploadWindguru # other services can be appended separated with a comma
+
+*******************************************************************************
+"""
 import weewx, urllib2, syslog, time
 from weewx.engine import StdService
 
