@@ -87,7 +87,7 @@ class UploadWindguru(StdService):
             result = urllib2.urlopen(request, timeout = 1)
             httpStatusCode = result.getcode()
             if int(httpStatusCode) != 200:
-              syslog.syslog(syslog.LOG_ERR, "Failed to upload data: Winguru answer: %s"  % httpStatusCode)
+              syslog.syslog(syslog.LOG_ERR, "Failed to upload data: Windguru answer: %s"  % httpStatusCode)
             else:
               syslog.syslog(syslog.LOG_DEBUG, "Winguru answer: %s"  % httpStatusCode)
           except urllib2.URLError, e:
