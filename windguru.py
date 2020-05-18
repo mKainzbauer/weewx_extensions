@@ -11,7 +11,7 @@ weewx.conf:
 
 [Windguru]
     url = http://www.windguru.cz/upload/upload_custom.php
-    uid = YOUT_WINDGURU_UID
+    uid = YOUR_WINDGURU_UID
     barometer = barometer # the pressure reading you want to upload, windguru expects pressure normalized to sea level, possible values are baromter, pressure, altimeter
     
 
@@ -33,8 +33,10 @@ To enable this service:
 
 *******************************************************************************
 """
-import weewx, urllib2, syslog, time
+import weewx, urllib.request, urllib.error, time, logging
 from weewx.engine import StdService
+
+log = logging.getLogger(__name__)
 
 class UploadWindguru(StdService):
     
@@ -65,7 +67,7 @@ class UploadWindguru(StdService):
           mslp = float(event.record[self.config_dict['Windguru']['barometer']])
         precip = float(event.record['rain'])
         
-        syslog.syslog(syslog.LOG_DEBUG, "event.record: %s" % event.record)
+        log.debug("event.record: %s" % event.record)
         #Windguru only takes current values, so only values from close to now are taken (in case of backfilling values)
         if (time.time() - int(event.record['dateTime'])) < int(self.config_dict['StdArchive']['archive_interval']):
           if int(event.record['usUnits']) == weewx.US:
@@ -82,18 +84,18 @@ class UploadWindguru(StdService):
             wind_avg = wind_avg * UploadWindguru.mpsKnotFactor
             wind_max = wind_max * UploadWindguru.mpsKnotFactor
           request = self.config_dict['Windguru']['url'] + '?uid=' + self.config_dict['Windguru']['uid'] + '&wind_avg=' + str(wind_avg) + '&wind_max=' + str(wind_max) + '&wind_direction=' + str(wind_direction) + '&temperature=' + str(temperature) + '&rh=' + str(rh) + '&mslp=' + str(mslp) + '&precip=' + str(precip)
-          syslog.syslog(syslog.LOG_INFO, "Uploading Windguru data: %s" % request)
+          log.info("Uploading Windguru data: %s" % request)
           try:
-            result = urllib2.urlopen(request, timeout = 1)
+            result = urllib.request.urlopen(request, timeout = 1)
             httpStatusCode = result.getcode()
             if int(httpStatusCode) != 200:
-              syslog.syslog(syslog.LOG_ERR, "Failed to upload data: Windguru answer: %s"  % httpStatusCode)
+              log.error("Failed to upload data: Winguru answer: %s"  % httpStatusCode)
             else:
-              syslog.syslog(syslog.LOG_DEBUG, "Winguru answer: %s"  % httpStatusCode)
-          except urllib2.URLError, e:
-            syslog.syslog(syslog.LOG_ERR, "Error uploading data: %r" % e)
+              log.debug("Winguru answer: %s"  % httpStatusCode)
+          except urllib.error.URLError as e:
+            log.error("Error uploading data: %r" % e)
           except:
-            syslog.syslog(syslog.LOG_ERR, "Unexpected error:")
+            log.error("Unexpected error:")
       except:
-        syslog.syslog(syslog.LOG_ERR, "Unexpected error:")
+        log.error("Unexpected error:")
       
