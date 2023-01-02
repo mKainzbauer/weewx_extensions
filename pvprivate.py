@@ -64,6 +64,8 @@ class AddPVPower(StdService):
       installedWP = float(self.config_dict['pvprivate']['installedWP'])
       log.debug("Installed Watt peak: %s"  % installedWP)
       url = self.config_dict['pvprivate']['api_url'] + str(event.record['dateTime'])
+      if 'deviceId' in self.config_dict['pvprivate']:
+        url = url + '/' + self.config_dict['pvprivate']['deviceId']
       log.info(url)
       response = urllib.request.urlopen(url)
       raw = response.read()
