@@ -32,7 +32,7 @@ To enable this service:
 *******************************************************************************
 """
 
-import weewx, json, urllib.request, urllib.error, weeutil.weeutil, logging
+import weewx, json, urllib.request, urllib.error, weeutil.weeutil, logging, time
 from weeutil.weeutil import timestamp_to_string
 from weewx.engine import StdService
 from datetime import datetime
@@ -40,51 +40,55 @@ from datetime import datetime
 log = logging.getLogger(__name__)
 
 class AddPVPower(StdService):
+      
+    def __init__(self, engine, config_dict):
 
-  def __init__(self, engine, config_dict):
+      # Initialize my superclass first:
+      super(AddPVPower, self).__init__(engine, config_dict)
 
-    # Initialize my superclass first:
-    super(AddPVPower, self).__init__(engine, config_dict)
+      # Bind to any new archive record events:
+      self.bind(weewx.NEW_ARCHIVE_RECORD, self.new_archive_record)
 
-    # Bind to any new archive record events:
-    self.bind(weewx.NEW_ARCHIVE_RECORD, self.new_archive_record)
+    def new_archive_record(self, event):
+      value = self.getValue(event)
+      log.debug("pvprivate power value: %s at %s" % (value, (weeutil.weeutil.timestamp_to_string(event.record['dateTime']))))
+      
+      archive_column = "radiation"
+      if 'archive_column' in self.config_dict['pvprivate']:
+        archive_column = self.config_dict['pvprivate']['archive_column']
+      
+      event.record[archive_column] = value
 
-  def new_archive_record(self, event):
-    value = self.getValue(event)
-    log.debug("pvprivate power value: %s at %s" % (value, (weeutil.weeutil.timestamp_to_string(event.record['dateTime']))))
-
-    archive_column = "radiation"
-    if 'archive_column' in self.config_dict['pvprivate']:
-      archive_column = self.config_dict['pvprivate']['archive_column']
-
-    event.record[archive_column] = value
-
-  def getValue(self, event):
-    try:
-      installedWP = float(self.config_dict['pvprivate']['installedWP'])
-      log.debug("Installed Watt peak: %s"  % installedWP)
-      url = self.config_dict['pvprivate']['api_url'] + str(event.record['dateTime'])
-      if 'deviceId' in self.config_dict['pvprivate']:
-        url = url + '/' + self.config_dict['pvprivate']['deviceId']
-      log.info(url)
-      response = urllib.request.urlopen(url)
-      raw = response.read()
-      log.debug("RAW: %s"  % raw)
-      if len(raw) < 1:
-        url = self.config_dict['pvprivate']['api_url'] + str(event.record['dateTime'] - int(self.config_dict['StdArchive']['archive_interval']))
+    def getValue(self, event):
+      try:
+        installedWP = float(self.config_dict['pvprivate']['installedWP'])
+        log.debug("Installed Watt peak: %s"  % installedWP)
+        url = self.config_dict['pvprivate']['api_url'] + str(event.record['dateTime'])
+        if 'deviceId' in self.config_dict['pvprivate']:
+          url = url + '/' + self.config_dict['pvprivate']['deviceId']
         log.info(url)
         response = urllib.request.urlopen(url)
         raw = response.read()
         log.debug("RAW: %s"  % raw)
-      data = json.loads(raw)
-      averagePower = data["produced"]
-      log.info("Avg Power: %s at %s" % (averagePower, (weeutil.weeutil.timestamp_to_string(event.record['dateTime']))))
-      normalizedOutput = averagePower / installedWP
-      log.debug("Normalized Output: %s at %s" % (normalizedOutput, (weeutil.weeutil.timestamp_to_string(event.record['dateTime']))))
-
-      return normalizedOutput
-    except urllib.error.URLError as e:
-      log.error("Error getting inverter data: %r" % e)
-    except:
-      log.error("Unexpected error:")
-      return None
+        retry = 0
+        while len(raw) < 1 and retry < 5:
+          retry = retry + 1
+          #url = self.config_dict['pvprivate']['api_url'] + str(event.record['dateTime'] - int(self.config_dict['StdArchive']['archive_interval']))
+          log.warn("Empty response, retrying [%s]" % retry)
+          time.sleep(3)
+          log.info(url)
+          response = urllib.request.urlopen(url)
+          raw = response.read()
+          log.debug("RAW: %s"  % raw)
+        data = json.loads(raw)
+        averagePower = data["produced"]
+        log.info("Avg Power: %s at %s" % (averagePower, (weeutil.weeutil.timestamp_to_string(event.record['dateTime']))))
+        normalizedOutput = averagePower / installedWP
+        log.debug("Normalized Output: %s at %s" % (normalizedOutput, (weeutil.weeutil.timestamp_to_string(event.record['dateTime']))))
+        
+        return normalizedOutput
+      except urllib.error.URLError as e:
+        log.error("Error getting inverter data: %r" % e)
+      except:
+        log.error("Unexpected error:")
+        return None
